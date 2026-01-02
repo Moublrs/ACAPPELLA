@@ -19,26 +19,55 @@ FRAME_SIZE = 128
 STRIDE_FRAMES = 64
 
 # Importer votre modèle (vous devrez l'adapter)
-MODEL_URL = "https://www.dropbox.com/scl/fi/pnzxhaueynzljif7kh86i/unet_final.pth?rlkey=umz3jel4az9wf8j75d0hmx04z&st=2vihy6yj&dl=0"  # À remplacer
+MODEL_URL = "https://www.dropbox.com/scl/fi/pnzxhaueynzljif7kh86i/unet_final.pth?rlkey=umz3jel4az9wf8j75d0hmx04z&st=2vihy6yj&dl=1"
 MODEL_PATH = "unet_final.pth"
 
 def download_model_if_needed():
-    """Télécharge le modèle s'il n'existe pas"""
-    if not os.path.exists(MODEL_PATH):
+    if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) < 1024:
         print("📥 Téléchargement du modèle...")
-        response = requests.get(MODEL_URL, stream=True)
-        with open(MODEL_PATH, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+
+        with requests.get(MODEL_URL, stream=True, allow_redirects=True, timeout=120) as r:
+            r.raise_for_status()
+
+            ct = (r.headers.get("Content-Type") or "").lower()
+            if "text/html" in ct:
+                raise RuntimeError(
+                    f"Dropbox a renvoyé du HTML (Content-Type={ct}). "
+                    f"Assure-toi d'avoir dl=1 dans l'URL."
+                )
+
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+
+        # petit check anti-HTML au cas où
+        with open(MODEL_PATH, "rb") as f:
+            head = f.read(32)
+        if head.startswith(b"<!DOCTYPE html") or head.startswith(b"<html") or head.startswith(b"<"):
+            raise RuntimeError("Le fichier téléchargé ressemble à une page HTML, pas à un checkpoint PyTorch.")
+
         print("✅ Modèle téléchargé")
-    
-    # Charger le modèle
+
     model = UNet().to(DEVICE)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
+
+    # 1) essaie weights_only=True (safe)
+    try:
+        state = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True)
+    except Exception as e:
+        raise RuntimeError(
+            "Chargement safe (weights_only=True) impossible. "
+            "Si tu es 100% sûr de la source, tu peux charger en weights_only=False."
+        ) from e
+
+    # 2) gère les 2 formats courants
+    if isinstance(state, dict) and "state_dict" in state:
+        state = state["state_dict"]
+
+    model.load_state_dict(state)
     model.eval()
     return model
 
-# Au début de votre app
 model = download_model_if_needed()
 
 def download_youtube_audio(query):
