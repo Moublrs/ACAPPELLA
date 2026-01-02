@@ -71,7 +71,7 @@ def download_model_if_needed():
 model = download_model_if_needed()
 
 def download_youtube_audio(query):
-    """Télécharge audio depuis YouTube"""
+    """Télécharge audio depuis YouTube avec fallback"""
     temp_dir = tempfile.mkdtemp()
     
     ydl_opts = {
@@ -86,19 +86,40 @@ def download_youtube_audio(query):
         }],
         'default_search': 'ytsearch1',
         'noplaylist': True,
+        # AJOUTEZ CES LIGNES POUR CONTOURNER LES BLOCAGES :
+        'socket_timeout': 30,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'tv_embedded', 'web'],
+                'skip': ['dash', 'hls']
+            }
+        },
+        # Essayer différents user agents
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Sec-Fetch-Mode': 'navigate',
+        },
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"🔍 Recherche YouTube: {query}")
             info = ydl.extract_info(f"ytsearch:{query}", download=True)
         
         # Trouver le fichier WAV
         for f in os.listdir(temp_dir):
             if f.endswith('.wav'):
+                print(f"✅ Audio téléchargé: {f}")
                 return os.path.join(temp_dir, f), info.get('title', 'Chanson')
                 
     except Exception as e:
-        print(f"Erreur téléchargement: {e}")
+        print(f"❌ Erreur téléchargement YouTube: {e}")
+        print("🔄 Tentative avec mode démo...")
+        
+        # FALLBACK: Créer un fichier audio de démo
+        return create_demo_audio(query, temp_dir)
     
     return None, None
 
