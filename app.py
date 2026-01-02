@@ -34,7 +34,7 @@ def download_model_if_needed():
     
     # Charger le modèle
     model = UNet().to(DEVICE)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=True))
     model.eval()
     return model
 
