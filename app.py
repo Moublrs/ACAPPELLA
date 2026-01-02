@@ -8,7 +8,8 @@ import os
 import tempfile
 import traceback
 from pathlib import Path
-
+import requests
+from model import UNet
 # Configuration
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SR = 8192
@@ -18,21 +19,27 @@ FRAME_SIZE = 128
 STRIDE_FRAMES = 64
 
 # Importer votre modèle (vous devrez l'adapter)
-try:
-    # Si vous avez un fichier model.py
-    from model import UNet
-    MODEL_PATH = "unet_final.pth"
+MODEL_URL = "https://www.dropbox.com/scl/fi/pnzxhaueynzljif7kh86i/unet_final.pth?rlkey=umz3jel4az9wf8j75d0hmx04z&st=2vihy6yj&dl=0"  # À remplacer
+MODEL_PATH = "unet_final.pth"
+
+def download_model_if_needed():
+    """Télécharge le modèle s'il n'existe pas"""
+    if not os.path.exists(MODEL_PATH):
+        print("📥 Téléchargement du modèle...")
+        response = requests.get(MODEL_URL, stream=True)
+        with open(MODEL_PATH, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print("✅ Modèle téléchargé")
     
     # Charger le modèle
-    print("🧠 Chargement du modèle U-Net...")
     model = UNet().to(DEVICE)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     model.eval()
-    print("✅ Modèle chargé!")
-    
-except ImportError:
-    print("⚠️ Modèle non trouvé, mode simulation activé")
-    model = None
+    return model
+
+# Au début de votre app
+model = download_model_if_needed()
 
 def download_youtube_audio(query):
     """Télécharge audio depuis YouTube"""
