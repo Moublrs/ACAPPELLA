@@ -49,7 +49,7 @@ zrok share public localhost:7860
 
 **yt-dlp** : Gestion des métadonnées variables, vidéos géo-bloquées, extraction audio via FFmpeg.
 
-**Tunneling** : Plusieurs solutions testées (ngrok payant, bore down, cloudflared bloqué). Solution retenue : zrok ou Gradio share intégré.
+**Tunneling** : Plusieurs solutions testées (ngrok payant, bore down, cloudflared bloqué). Solution retenue : zrok
 
 ## Modèles Disponibles
 
